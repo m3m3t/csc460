@@ -11,6 +11,8 @@
 #define MIN_JOY_STICK_VAL 0
 #define SERVO_MIDDLE 90 // middle of range for servo
 
+#define MAX_ROOMBA_SPEED 500
+#define MAX_ROOMBA_TURN 2000
 //pins
 #define SERVO_PIN 9 //pin for servo
 #define IR_PIN 24 // pin for ir transmitter
@@ -44,30 +46,45 @@ void idle(uint32_t idle_period){
 
 //read joystick, servo is smooth and stops when joystick released
 void read_joy_stick(){
-  int velocity = 0; //how much to move forward/back
-  int raduis = 0; //how much to turn
+  static int16_t velocity = 0; //how much to move forward/back
+  static int16_t raduis = 0; //how much to turn
   
   int valy = analogRead(JOY_STICK_PIN_Y);            // reads the value of the potentiometer (value between 0 and 1023) 
   int valx = analogRead(JOY_STICK_PIN_X);            // reads the value of the potentiometer (value between 0 and 1023) 
 
   //move joystick
-  if(valy < (int)(MAX_JOY_STICK_VAL * 0.25f)){
-     velocity = -2;
+  if(valx < (int)(MAX_JOY_STICK_VAL * 0.25f)){
+     velocity += (velocity < (-1)*MAX_ROOMBA_SPEED/2) ? -2 : 0;
   }
-  else if(valy < (int)(MAX_JOY_STICK_VAL *0.45f)){
-    velocity = -1;
+  else if(valx < (int)(MAX_JOY_STICK_VAL *0.45f)){
+    velocity += (velocity < (-1)*MAX_ROOMBA_SPEED/5) ? -1 : 0;
   }
-  else if(valy >= (int)(MAX_JOY_STICK_VAL * 0.45f) && valy <= (int)(MAX_JOY_STICK_VAL * 0.55f)){
+  else if(valx >= (int)(MAX_JOY_STICK_VAL * 0.45f) && valx <= (int)(MAX_JOY_STICK_VAL * 0.55f)){
     velocity = 0;
   }
-  else if(valy < (int)(MAX_JOY_STICK_VAL *0.75f)){
-    velocity = 1;
+  else if(valx < (int)(MAX_JOY_STICK_VAL *0.75f)){
+    velocity += (velocity < MAX_ROOMBA_SPEED/5) ? 1 : 0;
   }
   else{
-    velocity = 2;
+    velocity += (velocity < MAX_ROOMBA_SPEED/2) ? 2 : 0;
   }
   
-  if(
+  //move joystick
+  if(valy < (int)(MAX_JOY_STICK_VAL * 0.25f)){
+     raduis += (raduis < (-1)*MAX_ROOMBA_TURN/2) ? -2 : 0;
+  }
+  else if(valy < (int)(MAX_JOY_STICK_VAL *0.45f)){
+    raduis += (raduis < (-1)*MAX_ROOMBA_TURN/5) ? -1 : 0;
+  }
+  else if(valy >= (int)(MAX_JOY_STICK_VAL * 0.45f) && valy <= (int)(MAX_JOY_STICK_VAL * 0.55f)){
+    raduis = 0;
+  }
+  else if(valy < (int)(MAX_JOY_STICK_VAL *0.75f)){
+    raduis += (raduis < MAX_ROOMBA_TURN/5) ? 1 : 0;
+  }
+  else{
+    raduis += (raduis < MAX_ROOMBA_TURN/2) ? 2 : 0;
+  }
 
   radio_movement(velocity, radius);
   
@@ -81,12 +98,17 @@ void read_button(){
   }
 }
 
-void radio_movement(){
+void radio_movement(int16_t velocity, int16_t radius){
   packet.type = COMMAND;
   memcpy(packet.payload.command.sender_address, my_addr, RADIO_ADDRESS_LENGTH);
   packet.payload.command = 137;
   packet.payload.command.num_arg_bytes = 4;
-  
+  //convert velocity to two 8 bit numbers
+  packet.payload.arguments[0] =  (uint8_t)((velocity << 8)& 0xff);
+  packet.payload.arguments[1] =  (uint8_t)(velocity & 0xff);
+  //convert radius to two 8 bit numbers
+  packet.payload.arguments[2] =  (uint8_t)((radius << 8)& 0xff);
+  packet.payload.arguments[3] =  (uint8_t)(radius & 0xff);
 
   if (Radio_Transmit(&packet, RADIO_WAIT_FOR_TX) == RADIO_TX_MAX_RT) // Transmitt packet.
   {
@@ -126,7 +148,7 @@ void setup()
   scheduler_setup();
   radio_setup();
 
-  Scheduler_StartTask(0, 15, read_joy_stick);
+  Scheduler_StartTask(0, 125, read_joy_stick);
   Scheduler_StartTask(0, 200, read_button);
   Scheduler_StartTask(0, 1, signal_ir);
   Scheduler_StartTask(0, 500, radio_movement);
