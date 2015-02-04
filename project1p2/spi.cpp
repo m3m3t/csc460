@@ -75,3 +75,4 @@ uint8_t SPI_Write_Byte(uint8_t byte)
     SPI_WAIT();
     return SPDR;
 }
+

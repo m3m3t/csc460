@@ -19,3 +19,4 @@ void radio_rxhandler(uint8_t pipe_number)
 	// It is called in the radio's ISR, so it must be kept short.
 	// The function may be left empty if the application doesn't need to respond immediately to the interrupt.
 }
+
