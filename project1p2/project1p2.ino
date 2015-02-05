@@ -3,6 +3,7 @@
 #include "scheduler.h"
 #include "packet.h"
 #include "radio.h"
+#include "cops_and_robbers.h"
 
 #define MAX_JOY_STICK_VAL 1023
 #define MIN_JOY_STICK_VAL 0
@@ -43,8 +44,6 @@ void read_joy_stick(){
   }else if (valx > (int)(MAX_JOY_STICK_VAL * 0.60f)){
      velocity = (int)(0.50f * MAX_ROOMBA_SPEED);
   }
-  Serial.println(valx);
-  Serial.println(MAX_JOY_STICK_VAL *0.60f);
 
   //turn radius
   if(velocity != 0){
@@ -82,15 +81,14 @@ void radio_movement(int16_t velocity, int16_t radius){
 
   if(val == 0){
     digitalWrite(IR_PIN, LOW);
-    val ++;
-  }
-  else{
+  }else if(val == 5){
     digitalWrite(IR_PIN, HIGH);
-    val --;
+    val = -1;
   }
+   val ++;
 
   char string[20];
-  sprintf(string, "Sending v: %d r:%d",velocity, radius);
+  //sprintf(string, "Sending v: %d r:%d",velocity, radius);
 
   packet_move.type = COMMAND;
   memcpy(packet_move.payload.command.sender_address, my_addr, RADIO_ADDRESS_LENGTH);
@@ -103,7 +101,7 @@ void radio_movement(int16_t velocity, int16_t radius){
   packet_move.payload.command.arguments[2] =  (uint8_t)((radius << 8)& 0xff);
   packet_move.payload.command.arguments[3] =  (uint8_t)(radius & 0xff);
 
-  Serial.println(string);
+  //Serial.println(string);
   if (Radio_Transmit(&packet_move, RADIO_RETURN_ON_TX) == RADIO_TX_MAX_RT) // Transmitt packet.
   {
     Serial.println("Data not trasmitted. Max retry.");
@@ -116,7 +114,7 @@ void radio_movement(int16_t velocity, int16_t radius){
 }
 
 void radio_start_roomba_sci(){
-  digitalWrite(IR_PIN, HIGH);
+  digitalWrite(IR_PIN, LOW);
   //send start packet
   packet_start_sci.type = COMMAND;
   memcpy(packet_start_sci.payload.command.sender_address, my_addr, RADIO_ADDRESS_LENGTH);
@@ -145,7 +143,7 @@ void radio_start_roomba_sci(){
   {
     Serial.println("Data trasmitted.");
   }
-  digitalWrite(IR_PIN, LOW);
+  digitalWrite(IR_PIN, HIGH);
 }
 
 //initailize the radio
@@ -166,6 +164,37 @@ void radio_rxhandler(uint8_t pipe_number)
   // The function may be left empty if the application doesn't need to respond immediately to the interrupt.
 }
 
+//read button to check if fire ir
+void read_button(){
+  static int is_pressed = 0;
+  int button_val = analogRead(BUTTON_PIN);
+  if(button_val < 10 && is_pressed == 0){
+    is_pressed = 1;
+    fire_ir();
+  }else if (button_val >= 100){
+    is_pressed = 0;
+  }
+}
+
+//send packet to fire ir
+void fire_ir(){
+  digitalWrite(IR_PIN, HIGH);
+  packet_ir.type = IR_COMMAND;
+  memcpy(packet_ir.payload.ir_command.sender_address, my_addr, RADIO_ADDRESS_LENGTH);
+  packet_ir.payload.ir_command.ir_command = SEND_BYTE;
+  packet_ir.payload.ir_command.ir_data = 0x41; //"A"
+  packet_ir.payload.ir_command.servo_angle = 90;
+  
+    if (Radio_Transmit(&packet_ir, RADIO_RETURN_ON_TX) == RADIO_TX_MAX_RT) // Transmitt packet.
+  {
+    Serial.println("IR Data not trasmitted. Max retry.");
+  }
+  else // Transmitted succesfully.
+  {
+    Serial.println("IR Data trasmitted.");
+  }
+  digitalWrite(IR_PIN, LOW);
+}
 
 //setup all the pins
 void setup() 
@@ -179,13 +208,11 @@ void setup()
   Scheduler_Init();
   radio_setup();
 
-  //
+  //inialize the roomba for sci
   radio_start_roomba_sci();
 
-  Scheduler_StartTask(0, 125, read_joy_stick);
-  Scheduler_StartTask(0, 200, read_button);
-  //Scheduler_StartTask(0, 100, signal_ir);
-  // Serial.println("Starting");
+  Scheduler_StartTask(1950, 200, read_joy_stick);
+  Scheduler_StartTask(2000, 100, read_button);
 } 
 
 
