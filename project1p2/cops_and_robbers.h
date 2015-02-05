@@ -23,3 +23,4 @@ enum {
 	} IR_COMMANDS;
 
 #endif /* COPS_AND_ROBBERS_H_ */
+

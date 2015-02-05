@@ -13,6 +13,7 @@
 #include <avr/io.h>
 
 #include "sensor_struct.h"
+//#include "cops_and_robbers.h"
 
 /*****					Add labels for the packet types to the enumeration					*****/
 
@@ -96,3 +97,4 @@ typedef struct _rp
 } radiopacket_t;
 
 #endif /* PACKET_H_ */
+

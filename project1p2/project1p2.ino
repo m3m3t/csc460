@@ -1,25 +1,20 @@
-#include "Servo.h" 
+
+
 #include "scheduler.h"
 #include "packet.h"
 #include "radio.h"
 
-//transmission protocol
-#define SENDING_BITS 8
-
-//servo/joystick constants
 #define MAX_JOY_STICK_VAL 1023
 #define MIN_JOY_STICK_VAL 0
-#define SERVO_MIDDLE 90 // middle of range for servo
 
-#define MAX_ROOMBA_SPEED 500
-#define MAX_ROOMBA_TURN 2000
-//pins
-#define SERVO_PIN 9 //pin for servo
-#define IR_PIN 24 // pin for ir transmitter
-#define LED_PIN 24 // pin for radio led
+#define MAX_ROOMBA_SPEED 500.0f
+#define MAX_ROOMBA_TURN 2000.0f
+
+#define IR_PIN 13 // pin for ir transmitter
+#define BUTTON_PIN 2
+
 #define JOY_STICK_PIN_X 0 //pin for joystick read
 #define JOY_STICK_PIN_Y 1//pin for joystick read
-#define BUTTON_PIN 2
 
 volatile uint8_t rxflag = 0; //radio flag
 
@@ -29,76 +24,74 @@ uint8_t my_addr[5] = {
   0x98, 0x76, 0x54, 0x32, 0x11 }; // Transmitter address
 
 radiopacket_t packet_move;//radio packet
-radiopacket_t packet_ir;//
+radiopacket_t packet_ir;//packet for ir command
+radiopacket_t packet_start_sci;
 
-int button_state; //button on joystick
-
-boolean sending = false;
-
-
-//on idle that data from servo and joystick
-void idle(uint32_t idle_period){
-  delay(idle_period);
-}
-
-//read joystick, servo is smooth and stops when joystick released
+//read joystick, calculate driving parameters
 void read_joy_stick(){
-  static int16_t velocity = 0; //how much to move forward/back
-  static int16_t radius = 0; //how much to turn
-  
+  static int32_t velocity = 0; //how much to move forward/back
+  static int32_t radius = 0; //how much to turn
+
   int valy = analogRead(JOY_STICK_PIN_Y);            // reads the value of the potentiometer (value between 0 and 1023) 
   int valx = analogRead(JOY_STICK_PIN_X);            // reads the value of the potentiometer (value between 0 and 1023) 
 
-  //move joystick
-  if(valx < (int)(MAX_JOY_STICK_VAL * 0.25f)){
-     velocity += (velocity < (-1)*MAX_ROOMBA_SPEED/2) ? -2 : 0;
-  }
-  else if(valx < (int)(MAX_JOY_STICK_VAL *0.45f)){
-    velocity += (velocity < (-1)*MAX_ROOMBA_SPEED/5) ? -1 : 0;
-  }
-  else if(valx >= (int)(MAX_JOY_STICK_VAL * 0.45f) && valx <= (int)(MAX_JOY_STICK_VAL * 0.55f)){
+  //velocity
+  if(valx < (int)(MAX_JOY_STICK_VAL *0.40f)){
+    velocity = -(int)(0.50f * MAX_ROOMBA_SPEED);
+  }else if(valx >= (int)(MAX_JOY_STICK_VAL * 0.40f) && valx <= (int)(MAX_JOY_STICK_VAL * 0.60f)){
     velocity = 0;
+  }else if (valx > (int)(MAX_JOY_STICK_VAL * 0.60f)){
+     velocity = (int)(0.50f * MAX_ROOMBA_SPEED);
   }
-  else if(valx < (int)(MAX_JOY_STICK_VAL *0.75f)){
-    velocity += (velocity < MAX_ROOMBA_SPEED/5) ? 1 : 0;
+  Serial.println(valx);
+  Serial.println(MAX_JOY_STICK_VAL *0.60f);
+
+  //turn radius
+  if(velocity != 0){
+    if(valy < (int)(MAX_JOY_STICK_VAL *0.40f)){
+      radius = (int)(0.50f * MAX_ROOMBA_TURN);
+    }
+    else if(valy >= (int)(MAX_JOY_STICK_VAL * 0.40f) && valy <= (int)(MAX_JOY_STICK_VAL * 0.60f)){
+      //specail case for straight
+      radius = 32768;
+    }
+    else if(valy > (int)(MAX_JOY_STICK_VAL *0.60f)){
+      radius = (int)(-0.50f * MAX_ROOMBA_TURN);
+    }
+
   }
-  else{
-    velocity += (velocity < MAX_ROOMBA_SPEED/2) ? 2 : 0;
-  }
-  
-  //move joystick
-  if(valy < (int)(MAX_JOY_STICK_VAL * 0.25f)){
-     radius += (radius < (-1)*MAX_ROOMBA_TURN/2) ? -2 : 0;
-  }
-  else if(valy < (int)(MAX_JOY_STICK_VAL *0.45f)){
-    radius += (radius < (-1)*MAX_ROOMBA_TURN/5) ? -1 : 0;
-  }
-  else if(valy >= (int)(MAX_JOY_STICK_VAL * 0.45f) && valy <= (int)(MAX_JOY_STICK_VAL * 0.55f)){
-    radius = 0;
-  }
-  else if(valy < (int)(MAX_JOY_STICK_VAL *0.75f)){
-    radius += (radius < MAX_ROOMBA_TURN/5) ? 1 : 0;
-  }
-  else{
-    radius += (radius < MAX_ROOMBA_TURN/2) ? 2 : 0;
+  else{//turning on spot
+    if(valy < (int)(MAX_JOY_STICK_VAL *0.40f)){
+      radius = 1;
+    }
+    else if(valy >= (int)(MAX_JOY_STICK_VAL * 0.40f) && valy <= (int)(MAX_JOY_STICK_VAL * 0.60f)){
+      radius = 32768;
+    }
+    else if(valy > (int)(MAX_JOY_STICK_VAL *0.60f)){
+      radius = -1;
+    }
   }
 
   radio_movement(velocity, radius);
-  
 }
 
 
-void read_button(){
-  button_state = analogRead(BUTTON_PIN);
-  if(button_state < 5){
-    sending = true;
-  }
-}
-
+//set up the packet to tell rommba to drive
 void radio_movement(int16_t velocity, int16_t radius){
+  static int val = 0;
+
+  if(val == 0){
+    digitalWrite(IR_PIN, LOW);
+    val ++;
+  }
+  else{
+    digitalWrite(IR_PIN, HIGH);
+    val --;
+  }
+
   char string[20];
   sprintf(string, "Sending v: %d r:%d",velocity, radius);
-  Serial.println(string);
+
   packet_move.type = COMMAND;
   memcpy(packet_move.payload.command.sender_address, my_addr, RADIO_ADDRESS_LENGTH);
   packet_move.payload.command.command = 137;
@@ -110,7 +103,8 @@ void radio_movement(int16_t velocity, int16_t radius){
   packet_move.payload.command.arguments[2] =  (uint8_t)((radius << 8)& 0xff);
   packet_move.payload.command.arguments[3] =  (uint8_t)(radius & 0xff);
 
-  if (Radio_Transmit(&packet_move, RADIO_WAIT_FOR_TX) == RADIO_TX_MAX_RT) // Transmitt packet.
+  Serial.println(string);
+  if (Radio_Transmit(&packet_move, RADIO_RETURN_ON_TX) == RADIO_TX_MAX_RT) // Transmitt packet.
   {
     Serial.println("Data not trasmitted. Max retry.");
   }
@@ -118,44 +112,43 @@ void radio_movement(int16_t velocity, int16_t radius){
   {
     Serial.println("Data trasmitted.");
   }
-  // The rxflag is set by radio_rxhandler function below indicating that a
-  // new packet is ready to be read.
-  if (rxflag)
-  {
-    if (Radio_Receive(&packet_move) != RADIO_RX_MORE_PACKETS) // Receive packet.
-    {
-      // if there are no more packets on the radio, clear the receive flag;
-      // otherwise, we want to handle the next packet on the next loop iteration.
-      rxflag = 0;
-    }
-  }
+
 }
 
-void signal_ir(){
-}
-
-//setup all the pins
-void setup() 
-{ 
-  Serial.begin(57600);
-  //initialize all pins
-  pinMode(IR_PIN, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT);
-
-  scheduler_setup();
-  radio_setup();
-
-  Scheduler_StartTask(0, 125, read_joy_stick);
-  Scheduler_StartTask(0, 200, read_button);
-  Scheduler_StartTask(0, 100, signal_ir);
-  Serial.println("Starting");
+void radio_start_roomba_sci(){
   digitalWrite(IR_PIN, HIGH);
-} 
+  //send start packet
+  packet_start_sci.type = COMMAND;
+  memcpy(packet_start_sci.payload.command.sender_address, my_addr, RADIO_ADDRESS_LENGTH);
+  packet_start_sci.payload.command.command = 128;
+  packet_start_sci.payload.command.num_arg_bytes = 0;
+  
+  if (Radio_Transmit(&packet_start_sci, RADIO_RETURN_ON_TX) == RADIO_TX_MAX_RT) // Transmitt packet.
+  {
+    Serial.println("Data not trasmitted. Max retry.");
+  }
+  else // Transmitted succesfully.
+  {
+    Serial.println("Data trasmitted.");
+  }
 
-void scheduler_setup(){
-  Scheduler_Init();
+  //send control command
+  memcpy(packet_start_sci.payload.command.sender_address, my_addr, RADIO_ADDRESS_LENGTH);
+  packet_start_sci.payload.command.command = 130;
+  packet_start_sci.payload.command.num_arg_bytes = 0;;
+  
+  if (Radio_Transmit(&packet_start_sci, RADIO_RETURN_ON_TX) == RADIO_TX_MAX_RT) // Transmitt packet.
+  {
+    Serial.println("Data not trasmitted. Max retry.");
+  }
+  else // Transmitted succesfully.
+  {
+    Serial.println("Data trasmitted.");
+  }
+  digitalWrite(IR_PIN, LOW);
 }
 
+//initailize the radio
 void radio_setup(){
   //pinMode(LED_PIN, OUTPUT);
   Radio_Init();
@@ -166,16 +159,49 @@ void radio_setup(){
   Radio_Configure(RADIO_2MBPS, RADIO_HIGHEST_POWER);
 }
 
+void radio_rxhandler(uint8_t pipe_number)
+{
+  // This function is called when the radio receives a packet.
+  // It is called in the radio's ISR, so it must be kept short.
+  // The function may be left empty if the application doesn't need to respond immediately to the interrupt.
+}
+
+
+//setup all the pins
+void setup() 
+{ 
+  Serial.begin(57600);
+  Serial.println("begin");
+  //initialize all pins
+  pinMode(IR_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT);
+
+  Scheduler_Init();
+  radio_setup();
+
+  //
+  radio_start_roomba_sci();
+
+  Scheduler_StartTask(0, 125, read_joy_stick);
+  Scheduler_StartTask(0, 200, read_button);
+  //Scheduler_StartTask(0, 100, signal_ir);
+  // Serial.println("Starting");
+} 
+
+
+void idle(uint32_t idle){
+
+}
+
 void loop()
 {
+
   uint32_t idle_period = Scheduler_Dispatch();
   if (idle_period)
   {
     idle(idle_period);
   }
 }
-
-
 
 
 
