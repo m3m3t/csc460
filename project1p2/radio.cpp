@@ -9,7 +9,7 @@
 
 // non-public constants and macros
 
-#define CHANNEL 102
+#define CHANNEL 104 //2
 #define ADDRESS_LENGTH 5
 
 // Pin definitions for chip select and chip enable on the radio module
@@ -27,7 +27,7 @@ static volatile uint8_t transmit_lock;
 // tracks the payload widths of the Rx pipes
 static volatile uint8_t rx_pipe_widths[6] = {32, 32, 0, 0, 0, 0};
 // holds the transmit address (Rx pipe 0 is set to this address when transmitting with auto-ack enabled).
-static volatile uint8_t tx_address[5] = { 0xAB, 0xAB, 0xAB, 0xAB, 0xAB };
+static volatile uint8_t tx_address[5] = { 0xe7, 0xe7, 0xe7, 0xe7, 0xe7 };
 // holds the receiver address for Rx pipe 0 (the address is overwritten when transmitting with auto-ack enabled).
 static volatile uint8_t rx_pipe0_address[5] = { 0xe7, 0xe7, 0xe7, 0xe7, 0xe7 };
 // the driver keeps track of the success status for the last 16 transmissions
