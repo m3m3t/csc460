@@ -133,15 +133,6 @@ void radio_setup(){
 
   Radio_Set_Tx_Addr(station_addr);
   
-  //TEST
-  if (Radio_Transmit(&packet, RADIO_WAIT_FOR_TX) == RADIO_TX_MAX_RT) // Transmitt packet.
-	{
-		Serial.println("Data not trasmitted. Max retry.");
-	}
-	else // Transmitted succesfully.
-	{
-		Serial.println("Data trasmitted.");
-	}
 }
 
 void radio_rxhandler(uint8_t pipe_number)
