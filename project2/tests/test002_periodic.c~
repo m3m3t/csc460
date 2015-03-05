@@ -8,9 +8,9 @@
  */
 
 #include "common.h"
-#include "os.h"
-//#include "uart/uart.h"
-//#include "trace/trace.h"
+#include "OS/os.h"
+#include "uart/uart.h"
+#include "trace/trace.h"
 
 enum { A=1, B, C, D, E, F, G };
 const unsigned char PPP[] = {A, 5, B, 5, C, 5, D, 5, E, 5, F, 5};
@@ -26,8 +26,7 @@ void generic_task(void)
 
     for(;;)
     {
-      PORTB ^= _BV(PB7);
-        //add_to_trace(arg);
+        add_to_trace(arg);
 
         Task_Next();
     }
@@ -36,11 +35,11 @@ void generic_task(void)
 int main(void)
 {
     /* setup the test */
-	//uart_init();
-	//uart_write((uint8_t*)"\r\nSTART\r\n", 9);
+	uart_init();
+	uart_write((uint8_t*)"\r\nSTART\r\n", 9);
     set_test(2);
 
-    //print_event = Event_Init();
+    print_event = Event_Init();
 
    	Task_Create(generic_task, A, PERIODIC, A);
    	Task_Create(generic_task, B, PERIODIC, B);
@@ -49,6 +48,6 @@ int main(void)
 	Task_Create(generic_task, E, PERIODIC, E);
 	Task_Create(generic_task, F, PERIODIC, F);
 
-    //Event_Wait(print_event);
-    //print_trace();
+    Event_Wait(print_event);
+    print_trace();
 }

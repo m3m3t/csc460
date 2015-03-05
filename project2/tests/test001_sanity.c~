@@ -38,6 +38,7 @@ int r_main()
 
     /* Run clock at 8MHz. */
     //TCCR3B = _BV(CS30);
+	OS_Init();
 
     Task_Create_RR(round_robin, 1);
 

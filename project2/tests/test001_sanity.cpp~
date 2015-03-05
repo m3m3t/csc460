@@ -27,7 +27,7 @@ void round_robin(void)
     }
 }
 
-int r_main()
+int main(void)
 {
     /* setup the test */
     //uart_init();
@@ -43,5 +43,4 @@ int r_main()
 
     //Event_Wait(print_event);
     //print_trace();
-    return 0;
 }
