@@ -183,6 +183,9 @@ extern "C" {
 /** max. number of processes supported */  
 #define MAXPROCESS		8   
 
+/** workspace size of each process in bytes */ 
+#define WORKSPACE	256
+
 /** time resolution */
 #define TICK			    5     // resolution of system clock in milliseconds
 #define QUANTUM       5     // a quantum for RR tasks
