@@ -1,0 +1,269 @@
+GAS LISTING /tmp/ccBZ5vL1.s 			page 1
+
+
+   1               	# 1 "cswitch.S"
+   1               	/*
+   0               	
+   0               	
+   2               	 * Compile using:
+   3               	 *   avr-gcc -c -O2 -mmcu=${CPU} -Wa,--gstabs -o switch.o switch.S
+   4               	 */
+   5               	
+   6               	/*
+   7               	  * Note:
+   8               	  *
+   9               	  * This code is based on "thread_swtch.S" by Brian S. Dean, and the
+  10               	  * "os_cpu_a.asm" of uC/OS-II AVR Specific code by Ole Saether. 
+  11               	  * They are adapted to match our need of a "full-served" kernel model.
+  12               	  *
+  13               	  *  Author:  Dr. Mantis Cheng, 2 October 2006
+  14               	  *
+  15               	  *  ChangeLog: Modified by Alexander M. Hoole, October 2006.
+  16               	  *
+  17               	  *  !!!!!   This code has NEVER been tested.  !!!!!
+  18               	  *  !!!!!   Use at your own risk  !!!!
+  19               	  */
+  20               	
+  21               	
+  22               	/* locations of well-known registers */
+  23               	SREG  = 0x3F
+  24               	SPH    = 0x3E
+  25               	SPL    = 0x3D
+  26               	
+  27               	/*
+  28               	  * MACROS
+  29               	  */
+  30               	;
+  31               	; Push all registers and then the status register.
+  32               	; It is important to keep the order of SAVECTX and RESTORECTX  exactly
+  33               	; in reverse. Also, when a new process is created, it is important to 
+  34               	; initialize its "initial" context in the same order as SAVECTX.
+  35               	;	
+  36               	.macro	SAVECTX
+  37               		push	r0
+  38               		push	r1
+  39               		push	r2
+  40               		push	r3
+  41               		push	r4
+  42               		push	r5
+  43               		push	r6
+  44               		push	r7
+  45               		push	r8
+  46               		push	r9
+  47               		push	r10
+  48               		push	r11
+  49               		push	r12
+  50               		push	r13
+  51               		push	r14
+  52               		push	r15
+  53               		push	r16
+  54               		push	r17
+GAS LISTING /tmp/ccBZ5vL1.s 			page 2
+
+
+  55               		push	r18
+  56               		push	r19
+  57               		push	r20
+  58               		push	r21
+  59               		push	r22
+  60               		push	r23
+  61               		push	r24
+  62               		push	r25
+  63               		push	r26
+  64               		push	r27
+  65               		push	r28
+  66               		push	r29
+  67               		push	r30
+  68               		push	r31
+  69               		in	r16, SREG
+  70               		push	r16
+  71               	.endm
+  72               	;
+  73               	; Pop all registers and the status registers
+  74               	;
+  75               	.macro	RESTORECTX
+  76               		pop	r16
+  77               		out	SREG,r16
+  78               		pop	r31
+  79               		pop	r30
+  80               		pop	r29
+  81               		pop	r28
+  82               		pop	r27
+  83               		pop	r26
+  84               		pop	r25
+  85               		pop	r24
+  86               		pop	r23
+  87               		pop	r22
+  88               		pop	r21
+  89               		pop	r20
+  90               		pop	r19
+  91               		pop	r18
+  92               		pop	r17
+  93               		pop	r16
+  94               		pop	r15
+  95               		pop	r14
+  96               		pop	r13
+  97               		pop	r12
+  98               		pop	r11
+  99               		pop	r10
+ 100               		pop	r9
+ 101               		pop	r8
+ 102               		pop	r7
+ 103               		pop	r6
+ 104               		pop	r5
+ 105               		pop	r4
+ 106               		pop	r3
+ 107               		pop	r2
+ 108               		pop	r1
+ 109               		pop	r0
+ 110               	.endm
+ 111               	
+GAS LISTING /tmp/ccBZ5vL1.s 			page 3
+
+
+ 112               	        .section .text
+ 113               	        .global CSwitch
+ 114               	        .global Exit_Kernel
+ 115               	        .extern Dispatch
+ 116               	        .extern CurrentP     /* CurrentP->sp is the first entry in CurrentP's descriptor  */
+ 117               	/*
+ 118               	  * The actual CSwitch() code begins here.
+ 119               	  *
+ 120               	  * This function is called by a user task. Upon entry, we are using
+ 121               	  * the CurrentP's stack, on top of which contains the return address 
+ 122               	  * of the call to CSwitch(). There are three phases in this function:
+ 123               	  *   1) save current CurrentP's context, and then its H/W stack pointer;
+ 124               	  *   2) choose a new CurrentP;
+ 125               	  *   3) restore the new CurrentP's context, i.e., restore its H/W stack pointer.
+ 126               	  * 
+ 127               	  * Assumption: This function is executed with interrupts already disabled.
+ 128               	  *
+ 129               	  * Note: AVR devices use LITTLE endian format, i.e., a 16-bit value starts
+ 130               	  * with the lower-order byte first, then the higher-order byte.
+ 131               	  *
+ 132               	  * void CSwitch();
+ 133               	  * void Exit_Kernel(); 
+ 134               	  */
+ 135               	CSwitch:
+ 136               	        /* 
+ 137               	          * Assume I = 0, i.e., all interrupts are disabled.
+ 138               	          */
+ 139:cswitch.S     ****         SAVECTX
+ 139 0000 0F92      	> push r0
+ 139 0002 1F92      	> push r1
+ 139 0004 2F92      	> push r2
+ 139 0006 3F92      	> push r3
+ 139 0008 4F92      	> push r4
+ 139 000a 5F92      	> push r5
+ 139 000c 6F92      	> push r6
+ 139 000e 7F92      	> push r7
+ 139 0010 8F92      	> push r8
+ 139 0012 9F92      	> push r9
+ 139 0014 AF92      	> push r10
+ 139 0016 BF92      	> push r11
+ 139 0018 CF92      	> push r12
+ 139 001a DF92      	> push r13
+ 139 001c EF92      	> push r14
+ 139 001e FF92      	> push r15
+ 139 0020 0F93      	> push r16
+ 139 0022 1F93      	> push r17
+ 139 0024 2F93      	> push r18
+ 139 0026 3F93      	> push r19
+ 139 0028 4F93      	> push r20
+ 139 002a 5F93      	> push r21
+ 139 002c 6F93      	> push r22
+ 139 002e 7F93      	> push r23
+ 139 0030 8F93      	> push r24
+ 139 0032 9F93      	> push r25
+ 139 0034 AF93      	> push r26
+ 139 0036 BF93      	> push r27
+ 139 0038 CF93      	> push r28
+GAS LISTING /tmp/ccBZ5vL1.s 			page 4
+
+
+ 139 003a DF93      	> push r29
+ 139 003c EF93      	> push r30
+ 139 003e FF93      	> push r31
+ 139 0040 0FB7      	> in r16,SREG
+ 139 0042 0F93      	> push r16
+ 140               	        /* 
+ 141               	          * Now, we have saved the CurrentP's context.
+ 142               	          * Save the current H/W stack pointer into CurrentP->sp.
+ 143               	          */
+ 144:cswitch.S     ****         lds  r30, CurrentP
+ 145:cswitch.S     ****         lds  r31, CurrentP+1   /* Z = (R31,R30) contains the "sp" */
+ 146:cswitch.S     ****         in   r28, SPL
+ 147:cswitch.S     ****         in   r29, SPH
+ 148:cswitch.S     ****         st   Z+, r28       /* store (R28=SPL,R29=SPH) indirectly via Z */
+ 149:cswitch.S     ****         st   Z+, r29       /* Now, CurrentP->sp = the current H/W stack pointer */
+ 150               	       /*
+ 151               	         * Now, we should select a new "CurrentP".
+ 152               	         */
+ 153               	Exit_Kernel:
+ 154:cswitch.S     ****         call Dispatch
+ 155               	        /*
+ 156               	          * We are now ready to restore a new CurrentP's context, i.e.,
+ 157               	          * switching the H/W stack pointer to this new CurrentP->sp.
+ 158               	          */ 
+ 159:cswitch.S     ****         lds  r30, CurrentP
+ 160:cswitch.S     ****         lds  r31, CurrentP+1  /* Z = (R31,R30) contains the new "sp" */
+ 161:cswitch.S     ****         ld   r28, Z+
+ 162:cswitch.S     ****         ld   r29, Z+
+ 163:cswitch.S     ****         out  SPL, r28
+ 164:cswitch.S     ****         out  SPH, r29   /* Now, H/W stack pointer = CurrentP->sp */
+ 165               	        /*
+ 166               	          * We are now executing in our new CurrentP's stack.
+ 167               	          * Note: at the bottom of the CurrentP's context is its return address.
+ 168               	          */
+ 169:cswitch.S     ****         RESTORECTX
+ 169 0068 0F91      	> pop r16
+ 169 006a 0FBF      	> out SREG,r16
+ 169 006c FF91      	> pop r31
+ 169 006e EF91      	> pop r30
+ 169 0070 DF91      	> pop r29
+ 169 0072 CF91      	> pop r28
+ 169 0074 BF91      	> pop r27
+ 169 0076 AF91      	> pop r26
+ 169 0078 9F91      	> pop r25
+ 169 007a 8F91      	> pop r24
+ 169 007c 7F91      	> pop r23
+ 169 007e 6F91      	> pop r22
+ 169 0080 5F91      	> pop r21
+ 169 0082 4F91      	> pop r20
+ 169 0084 3F91      	> pop r19
+ 169 0086 2F91      	> pop r18
+ 169 0088 1F91      	> pop r17
+ 169 008a 0F91      	> pop r16
+ 169 008c FF90      	> pop r15
+ 169 008e EF90      	> pop r14
+ 169 0090 DF90      	> pop r13
+ 169 0092 CF90      	> pop r12
+GAS LISTING /tmp/ccBZ5vL1.s 			page 5
+
+
+ 169 0094 BF90      	> pop r11
+ 169 0096 AF90      	> pop r10
+ 169 0098 9F90      	> pop r9
+ 169 009a 8F90      	> pop r8
+ 169 009c 7F90      	> pop r7
+ 169 009e 6F90      	> pop r6
+ 169 00a0 5F90      	> pop r5
+ 169 00a2 4F90      	> pop r4
+ 169 00a4 3F90      	> pop r3
+ 169 00a6 2F90      	> pop r2
+ 169 00a8 1F90      	> pop r1
+ 169 00aa 0F90      	> pop r0
+ 170:cswitch.S     ****         ret    /* don't use rti to re-enable interrupts */
+GAS LISTING /tmp/ccBZ5vL1.s 			page 6
+
+
+DEFINED SYMBOLS
+           cswitch.S:23     *ABS*:000000000000003f SREG
+           cswitch.S:24     *ABS*:000000000000003e SPH
+           cswitch.S:25     *ABS*:000000000000003d SPL
+           cswitch.S:135    .text:0000000000000000 CSwitch
+           cswitch.S:153    .text:0000000000000054 Exit_Kernel
+
+UNDEFINED SYMBOLS
+CurrentP
+Dispatch
