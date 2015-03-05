@@ -21,7 +21,7 @@
 /* #include <string.h> */
 
 /** @brief main function provided by user application. The first task to run. */
-extern int r_main();
+extern "C" int r_main();
 
 /** PPP and PT defined in user application. */
 extern const unsigned char PPP[];
@@ -275,7 +275,7 @@ static void kernel_handle_request(void)
 		
     default:
         /* Should never happen */
-        error_msg = ERR_RUN_8_RTOS_INTERNAL_ERROR;
+        error_msg = ERR_RUN_5_RTOS_INTERNAL_ERROR;
         OS_Abort();
         break;
     }
@@ -1008,6 +1008,28 @@ int Task_Create(void (*f)(void), int arg, unsigned int level, unsigned int name)
     kernel_request_create_args.arg = arg;
     kernel_request_create_args.level = (uint8_t)level;
     kernel_request_create_args.name = (uint8_t)name;
+
+    kernel_request = TASK_CREATE;
+    enter_kernel();
+
+    retval = kernel_request_retval;
+    SREG = sreg;
+
+    return retval;
+}
+
+
+int8_t   Task_Create_RR(void (*f)(void), int16_t arg){
+    int retval;
+    uint8_t sreg;
+
+    sreg = SREG;
+    Disable_Interrupt();
+
+    kernel_request_create_args.f = (voidfuncvoid_ptr)f;
+    kernel_request_create_args.arg = arg;
+    kernel_request_create_args.level = (uint8_t)1;
+    kernel_request_create_args.name = (uint8_t)0;
 
     kernel_request = TASK_CREATE;
     enter_kernel();

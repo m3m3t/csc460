@@ -86,10 +86,10 @@ PROJECTNAME=project2
 # Use .cc, .cpp or .C suffix for C++ files, use .S 
 # (NOT .s !!!) for assembly source code files.
 #PRJSRC=main.c myclass.cpp lowlevelstuff.S
-PRJSRC=/tests/test001_sanity.c
+PRJSRC= os.cpp tests/test001_sanity.cpp
 
 # additional includes (e.g. -I/path/to/mydir)
-INC=-I/home/csc460/arduino-1.6.0/hardware/arduino/avr/variants/mega/ -I/home/csc460/arduino/libarduino 
+INC= -I/home/csc460/project2
 # libraries to link in (e.g. -lmylib)
 LIBS=
 
@@ -140,7 +140,7 @@ HEXFORMAT=ihex
 CFLAGS=-I. $(INC) -g -mmcu=$(MCU) -O$(OPTLEVEL) \
 	-fpack-struct -fshort-enums             \
 	-funsigned-bitfields -funsigned-char    \
-	-Wall -Wstrict-prototypes               \
+	-Wall             \
 	-Wa,-ahlms=$(firstword                  \
 	$(filter %.lst, $(<:.c=.lst)))
 
