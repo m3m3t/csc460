@@ -298,7 +298,9 @@ static void kernel_handle_request(void)
  */
 #define    SAVE_CTX_TOP()       asm volatile (\
     "push   r31             \n\t"\
-    "in     r31,__SREG__    \n\t"\
+    "in     r31,__EIND__   \n\t"\\
+    "push   r31             \n\t"\
+    "in     r31,__SREG__    \n\t"\    
     "cli                    \n\t"::); /* Disable interrupt */
 
 #define STACK_SREG_SET_I_BIT()    asm volatile (\
@@ -380,6 +382,8 @@ static void kernel_handle_request(void)
     "pop    r30             \n\t"\
     "pop    r31             \n\t"\
 	"out    __SREG__, r31    \n\t"\
+    "pop    r31             \n\t"\
+    "out    __EIND__, r31    \n\t"\
     "pop    r31             \n\t"::);
 
 
@@ -1090,13 +1094,4 @@ int Task_GetArg(void)
     SREG = sreg;
 
     return arg;
-}
-
-/**
- * Runtime entry point into the program; just start the RTOS.  The application layer must define r_main() for its entry point.
- */
-int main()
-{
-	OS_Init();
-	return 0;
 }
