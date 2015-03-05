@@ -300,7 +300,7 @@ static void kernel_handle_request(void)
     "push   r31             \n\t"\
     "in     r31,__EIND__    \n\t"\
     "push   r31             \n\t"\
-    "in     r31,__SREG__    \n\t"\    
+    "in     r31,__SREG__    \n\t"\
     "cli                    \n\t"::); /* Disable interrupt */
 
 #define STACK_SREG_SET_I_BIT()    asm volatile (\
