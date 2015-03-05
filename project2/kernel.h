@@ -18,7 +18,6 @@ extern "C" {
 #include <avr/io.h>
 #include "os.h"
 
-#define EIND 0x3c
 /** Disable default prescaler to make processor speed 8 MHz. */
 
 #define Disable_Interrupt()     asm volatile ("cli"::)
