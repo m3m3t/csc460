@@ -1095,3 +1095,12 @@ int Task_GetArg(void)
 
     return arg;
 }
+
+/**
+ * Runtime entry point into the program; just start the RTOS.  The application layer must define r_main() for its entry point.
+ */
+int main()
+{
+	OS_Init();
+	return 0;
+}
