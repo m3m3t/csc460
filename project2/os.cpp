@@ -298,7 +298,7 @@ static void kernel_handle_request(void)
  */
 #define    SAVE_CTX_TOP()       asm volatile (\
     "push   r31             \n\t"\
-    "in     r31,__EIND__   \n\t"\\
+    "in     r31,__EIND__    \n\t"\
     "push   r31             \n\t"\
     "in     r31,__SREG__    \n\t"\    
     "cli                    \n\t"::); /* Disable interrupt */
