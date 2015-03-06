@@ -415,15 +415,15 @@ static void exit_kernel(void)
      * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
     kernel_sp[0] = EIND; 
-    kernal_sp[1] = *(&SP + 1);
-    kernal_sp[2] = SP;
+    kernel_sp[1] = *(&SP + 1);
+    kernel_sp[2] = SP;
 
     /*
      * Now restore the task's context, SP first.
      * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
     EIND = cur_task->sp[0];
-    *(&SP + 1) = cur_process->sp[1];
+    *(&SP + 1) = cur_task->sp[1];
     SP = (uint16_t)(cur_task->sp);
 
     /*
@@ -473,8 +473,8 @@ static void enter_kernel(void)
      * Now restore the kernel's context, SP first.
      * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
-    EIND = kernal_sp[1];
-    *(&SP + 1) = kernal_sp[1];
+    EIND = kernel_sp[1];
+    *(&SP + 1) = kernel_sp[1];
     SP = kernel_sp[2];
 
     /*
@@ -681,8 +681,8 @@ static int kernel_create_task()
      * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
     p->sp[0] = 0; //EIND
-    p->sp[1] = (uint8_t) ((uint16_t) stack_top) >> 8);
-    p->sp[2] = (uint8_t) stack_top;
+    p->sp[1] = (uint8_t) ((uint16_t) stack_top >> 8);
+    p->sp[2] = (uint8_t) (uint16_t)stack_top;
 
     p->state = READY;
     p->arg = kernel_request_create_args.arg;
