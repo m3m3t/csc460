@@ -95,8 +95,8 @@ struct td_struct
 {
     /** The stack used by the task. SP points in here when task is RUNNING. */
     uint8_t                         stack[WORKSPACE];
-    /** A variable to save the hardware SP into when the task is suspended. */
-    uint8_t*               volatile sp;   /* stack pointer into the "workSpace" */
+    /** A array to save the 17 bit hardware SP into when the task is suspended. */
+    volatile uint8_t sp[3];   /* stack pointer into the "workSpace" */
     /** PERIODIC tasks need a name in the PPP array. */
     uint8_t                         name;
     /** The state of the task in this descriptor. */

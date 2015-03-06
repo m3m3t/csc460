@@ -33,7 +33,7 @@ extern const unsigned int PT;
 static task_descriptor_t* cur_task = NULL;
 
 /** Since this is a "full-served" model, the kernel is executing using its own stack. */
-static volatile uint16_t kernel_sp;
+static volatile uint8_t kernel_sp[3];//17 bit addressing
 
 /** This table contains all task descriptors, regardless of state, plus idler. */
 static task_descriptor_t task_desc[MAXPROCESS + 1];
@@ -412,12 +412,18 @@ static void exit_kernel(void)
 
     /*
      * The last piece of the context is the SP. Save it to a variable.
+     * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
-    kernel_sp = SP;
+    kernel_sp[0] = EIND; 
+    kernal_sp[1] = *(&SP + 1);
+    kernal_sp[2] = SP;
 
     /*
      * Now restore the task's context, SP first.
+     * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
+    EIND = cur_task->sp[0];
+    *(&SP + 1) = cur_process->sp[1];
     SP = (uint16_t)(cur_task->sp);
 
     /*
@@ -457,13 +463,19 @@ static void enter_kernel(void)
 
     /*
      * The last piece of the context is the SP. Save it to a variable.
+     * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
-    cur_task->sp = (uint8_t*)SP;
+    cur_task->sp[0] = EIND;
+    cur_task->sp[1] =  *(&SP +1);
+    cur_task->sp[2] = SP;
 
     /*
      * Now restore the kernel's context, SP first.
+     * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
-    SP = kernel_sp;
+    EIND = kernal_sp[1];
+    *(&SP + 1) = kernal_sp[1];
+    SP = kernel_sp[2];
 
     /*
      * Now restore I/O and SREG registers.
@@ -514,14 +526,22 @@ void TIMER1_COMPA_vect(void)
 
     SAVE_CTX_BOTTOM();
 
-    cur_task->sp = (uint8_t*)SP;
+    /*
+    * Save the tasks stack pointer
+    * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
+    */
+    cur_task->sp[0] = EIND;
+    cur_task->sp[1] = *(&SP + 1);
+    cur_task->sp[2] = SP;
 
     /*
      * Now that we already saved a copy of the stack pointer
      * for every context including the kernel, we can move to
      * the kernel stack and use it. We will restore it again later.
      */
-    SP = kernel_sp;
+    EIND = kernel_sp[0];
+    *(&SP + 1) = kernel_sp[1];
+    SP = kernel_sp[2];
 
     /*
      * Inform the kernel that this task was interrupted.
@@ -535,8 +555,11 @@ void TIMER1_COMPA_vect(void)
 
     /*
      * Restore the kernel context. (The stack pointer is restored again.)
+     * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
-    SP = kernel_sp;
+    EIND = kernel_sp[0];
+    *(&SP + 1) = kernel_sp[1];
+    SP = kernel_sp[2];
 
     /*
      * Now restore I/O and SREG registers.
@@ -635,7 +658,8 @@ static int kernel_create_task()
     stack_top[2] = (uint8_t) 0; /* r1 is the "zero" register. */
     /* stack_top[31] is r30. */
     stack_top[32] = (uint8_t) _BV(SREG_I); /* set SREG_I bit in stored SREG. */
-    /* stack_top[33] is r31. */
+    /* stack_top[33] is EIND. */
+    /* stack_top[34] is r31. */
 
     /* We are placing the address (16-bit) of the functions
      * onto the stack in reverse byte order (least significant first, followed
@@ -643,16 +667,22 @@ static int kernel_create_task()
      * (ret and reti) pop addresses off in BIG ENDIAN (most sig. first, least sig.
      * second), even though the AT90 is LITTLE ENDIAN machine.
      */
-    stack_top[34] = (uint8_t)((uint16_t)(kernel_request_create_args.f) >> 8);
-    stack_top[35] = (uint8_t)(uint16_t)(kernel_request_create_args.f);
-    stack_top[36] = (uint8_t)((uint16_t)Task_Terminate >> 8);
-    stack_top[37] = (uint8_t)(uint16_t)Task_Terminate;
+    stack_top[35] = 0; //EIND
+    stack_top[36] = (uint8_t)((uint16_t)(kernel_request_create_args.f) >> 8);
+    stack_top[37] = (uint8_t)(uint16_t)(kernel_request_create_args.f);
+    
+    stack_top[38] = 0; //EIND
+    stack_top[39] = (uint8_t)((uint16_t)Task_Terminate >> 8);
+    stack_top[40] = (uint8_t)(uint16_t)Task_Terminate;
 
     /*
      * Make stack pointer point to cell above stack (the top).
      * Make room for 32 registers, SREG and two return addresses.
+     * 17 bit stack pointer, stored as EIND (extended indirect register), sp High bits, sp low bits
      */
-    p->sp = stack_top;
+    p->sp[0] = 0; //EIND
+    p->sp[1] = (uint8_t) ((uint16_t) stack_top) >> 8);
+    p->sp[2] = (uint8_t) stack_top;
 
     p->state = READY;
     p->arg = kernel_request_create_args.arg;
