@@ -957,21 +957,21 @@ void OS_Abort(void)
 	Disable_Interrupt();
 	
 	/* Initialize port for output */
-	DDRD = LED_RED_MASK;
+	DDRB = _BV(ERROR_LED);
 	
 	if(error_msg < ERR_RUN_1_USER_CALLED_OS_ABORT)
 	{
-		flashes = error_msg + 1; // initailiza time error
+		flashes = error_msg + 1; // initialize time error
 		s
 		for(;;){
 			//flash on for 2 second on, off for 1 seconds
-			PORTD = (uint8_t)LED_RED_MASK;
+			PORTB = _BV(ERROR_LED);
 			for(;;){
 				for(i = 0; i < 80; ++i){  
 					_delay_25ms();
 				}
 			}
-			PORTD = (uint8_t) 0;
+			PORTB = (uint8_t) 0;
 			for(;;){
 				for(i = 0; i < 40; ++i){  
 					_delay_25ms();
@@ -981,11 +981,12 @@ void OS_Abort(void)
 			// flash number of error code half second on. half off
 			
 			for(j = 0; j < flashes; j++){
-				PORTD = (uint8_t)LED_RED_MASK;
+				PORTB = _BV(ERROR_LED);
 				for(i = 0; i < 20; ++i){
 					_delay_25ms();
 				}
-				PORTD = 0;
+				PORTB = 0;
+				PORTB = 0;
 				for(i = 0; i < 20; ++i){
 					_delay_25ms();
 				}
@@ -1005,7 +1006,7 @@ void OS_Abort(void)
 			
 			//flash on for 3 second on, off for 1 seconds
 			flashes = error_msg + 1;
-			PORTD = (uint8_t)LED_RED_MASK;
+			PORTD = _BV(ERROR_LED);;
 			for(;;){
 				for(i = 0; i < 120; ++i){  
 					_delay_25ms();
@@ -1020,7 +1021,7 @@ void OS_Abort(void)
 			
 			//flash run time error number quarter second on. quarter off
 			for(j = 0; j < flashes; ++j){
-				PORTD = (uint8_t)LED_RED_MASK;
+				PORTD = _BV(ERROR_LED);
 				
 				for(i = 0; i < 10; ++i){
 					_delay_25ms();

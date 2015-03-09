@@ -33,7 +33,7 @@ extern "C" {
 #define TICK_CYCLES     (((F_CPU / TIMER_PRESCALER) / 1000) * TICK)
 
 /** LEDs for OS_Abort() */
-#define LED_RED_MASK    (uint8_t)(_BV(0) | _BV(2) | _BV(3))
+#define ERROR_LED       6 //PIN 6 OF PORTB = DIGITAL 13 
 
 
 /* Typedefs and data structures. */
