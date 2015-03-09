@@ -1,12 +1,12 @@
 /**
-TESTING periodic medium
-test should pulse the output pin every period/ time task is run
+TESTING periodic long
+test should pulse the output pin for 25ms every period/ time task is run
  */
 
 #include "common.h"
 #include "os.h"
 
-#define pulse_width 10 //10 os ticks
+#define pulse_width 100 //10 os ticks
 #define OUTPUT_PIN 7 //digital pin 7;
 
 void pulse_pin(void)
@@ -15,6 +15,7 @@ void pulse_pin(void)
     for(;;)
     {
         PORTB = _BV(OUTPUT_PIN)
+        _delay_25ms();
         PORTB = 0;
         Task_Next();
     }

@@ -1,12 +1,12 @@
 /**
-TESTING periodic medium
-test should pulse the output pin every period/ time task is run
+TESTING periodic short
+test should pulse the output pin  every period/ time task is run
  */
 
 #include "common.h"
 #include "os.h"
 
-#define pulse_width 10 //10 os ticks
+#define pulse_width 2 //10 os ticks
 #define OUTPUT_PIN 7 //digital pin 7;
 
 void pulse_pin(void)
