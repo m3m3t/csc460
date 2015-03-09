@@ -1,6 +1,6 @@
 /**
-TESTING Task_GetArg
-test should create 2 rr tasks, that pulse the pin defined in the task->arg
+TESTING periodic and rr simultaneously
+test should create 21 of each, rr pulses pin for 25ms continuously, periodic turn on for 25ms, then off util next run
  */
 
 #include "common.h"
@@ -14,9 +14,9 @@ void pulse_pin_1(void)
     for(;;)
     {
         PORTB = _BV(Task_GetArg())
-        _delay_ms(50);
+        _delay_ms(25);
         PORTB = 0;
-        _delay_ms(10);
+        _delay_ms(25);
     }
 }
 
@@ -26,9 +26,8 @@ void pulse_pin_2(void)
     for(;;)
     {
         PORTB = _BV(Task_GetArg())
-        _delay_ms(50);
+        _delay_ms(25);
         PORTB = 0;
-        _delay_ms(10);
     }
 }
 
@@ -36,7 +35,7 @@ int r_main(void)
 {
     DDRD = _BV(OUTPUT_PIN)
     PORTB = 0;
-    Task_Create_RR(pulse_pin_1, OUTPUT_PIN_1);
-    Task_Create_RR(pulse_pin_2, OUTPUT_PIN_2);
+    Task_Create_RR(pulse_pin_1, 0);
+    Task_Create_Periodic(pulse_pin_2, 0, pulse_width, pulse_width-1, pulse_width);
 
 }
