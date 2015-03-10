@@ -281,6 +281,7 @@ static void kernel_handle_request(void)
 			
 		case PERIODIC:
 			cur_task->state = WAITING;
+			cur_task->time_remaining = 0;
 			break;
 			
 		case RR:
@@ -615,7 +616,7 @@ static int kernel_create_task()
 		p = dequeue(&dead_pool_queue);
 	}
 	
-	stack_bottom = &(p->stack[WORKSPACE-1]);
+	stack_bottom = &(p->stack[MAXSTACK-1]);
 	
 	/* The stack grows down in memory, so the stack pointer is going to end up
 	* pointing to the location 32 + 1 + +1 + 3 + 3 = 40 bytes above the bottom, to make
@@ -646,11 +647,11 @@ static int kernel_create_task()
 	* (ret and reti) pop addresses off in BIG ENDIAN (most sig. first, least sig.
 	* second), even though the AT90 is LITTLE ENDIAN machine.
 	*/
-	stack_top[35] = 0; //EIND
+	stack_top[35] = (uint8_t)0; //EIND
 	stack_top[36] = (uint8_t)((uint16_t)(kernel_request_create_args.f) >> 8);
 	stack_top[37] = (uint8_t)(uint16_t)(kernel_request_create_args.f);
 	
-	stack_top[38] = 0; //EIND
+	stack_top[38] = (uint8_t)0; //EIND
 	stack_top[39] = (uint8_t)((uint16_t)Task_Terminate >> 8);
 	stack_top[40] = (uint8_t)(uint16_t)Task_Terminate;
 	
@@ -676,10 +677,11 @@ static int kernel_create_task()
 		case PERIODIC:
 		/* Put this newly created PPP task into the PPP lookup array */
 		//name_to_task_ptr[kernel_request_create_args.name] = p;
-		ppp_tasks_len++;
-		if(ppp_tasks_len < MAXPROCESS){
+		
+		if(ppp_tasks_len < MAXPROCESS - 1){
 			task_in_PPP[ppp_tasks_len] = p;
-			}else{
+			ppp_tasks_len++;
+		}else{
 			//too many
 			error_msg = ERR_RUN_7_PERIODIC_TOO_MANY;
 			OS_Abort();
@@ -719,6 +721,7 @@ static void kernel_terminate_task(void)
 		//name_to_task_ptr[cur_task->name] = NULL;
 		for(int i=0; i < MAXPROCESS; i++){
 			if(cur_task == task_in_PPP[i]){
+				PORTB = (uint8_t)(_BV(PB7));
 				task_in_PPP[i] = NULL;
 			}
 		}
@@ -797,12 +800,11 @@ static void kernel_update_ticker(void)
 			OS_Abort();
 		}
 	}
-	
 	//update periodic tasks
 	for(int i = 0; i < MAXPROCESS; i++){
 		//check not null
 		if(task_in_PPP[i] != NULL){
-			PORTB = (uint8_t)(_BV(PB5));
+			
 			task_in_PPP[i]->time_remaining --;
 			//check time remaining
 			if(task_in_PPP[i]->time_remaining <= 0){
@@ -813,7 +815,7 @@ static void kernel_update_ticker(void)
 					task_in_PPP[i]->wcet_remaining = task_in_PPP[i]->wcet;
 			
 			}
-			PORTB = 0;
+			
 		}
 	}
 	
@@ -1297,72 +1299,30 @@ int8_t   Task_Create_RR(void (*f)(void), int16_t arg){
 	return retval;
 }
 
+
+void sys(){
+	PORTB = (uint8_t)(_BV(PB5));
+	PORTB = 0;
+	Task_Next();
+}
+
 void rr(){
 	for(;;){
+		for(int i = 0; i < 100; i++){
 		if(PORTB == 0){
-			PORTB = (uint8_t)(_BV(PB7) | _BV(PB7));
+			PORTB = (uint8_t)(_BV(PB6));
 		}else{
 			PORTB = 0;
 		}
-		_delay_ms(1);
-	}
-}
-void sys(){
-	for(;;){
-	uint16_t tn;
-	uint16_t tl;
-	
-	PORTB = (uint8_t)(_BV(PB7));
-	tn = Now();
-	_delay_ms(50);
-	tl = Now();
-	
-	PORTB = 0;
-	int16_t dif = (tl-tn >= 0)? tl-tn : tn-tl;
-	for(int i = 0; i < dif; i++){
-		_delay_ms(1);
-	}
-	PORTB = (uint8_t)(_BV(PB7));
-	}
-}
-void sys1(){
-	for(;;){
-	for(int i = 0; i < 5; i++){
-		if(PORTB == 0){
-			PORTB = (uint8_t)(_BV(PB6));
-			}else{
-			PORTB = 0;
-		}
-		_delay_ms(3);
-	}
-	}
-}
-void sys2(){
-	for(;;){
-	for(int i = 0; i < 5; i++){
-		if(PORTB == 0){
-			PORTB = (uint8_t)(_BV(PB5));
-			}else{
-			PORTB = 0;
-		}
-		_delay_ms(4);
-	}
-	}
-}
-
-void rr2(){
-	for(;;){
-		for(int i = 0; i < 10; i++){
-			
-			_delay_ms(250);
+		_delay_ms(10);
 		}
 		Task_Create_System(sys, 0);
 	}
 }
 
 void per(){
-	if(PORTB == 0){
-		PORTB = (uint8_t)(_BV(PB6));
+	if( (PORTB & (uint8_t)(_BV(PB7)))  == 0){
+		PORTB = (uint8_t)(_BV(PB7));
 	}else{
 		PORTB = 0;
 	}
@@ -1387,6 +1347,7 @@ int main()
 
 int r_main(){
 
-	Task_Create_Periodic(per,0,50,40,100);
+	Task_Create_RR(rr, 0);
+	Task_Create_Periodic(per,0,103,100,140);
 	return 0;
 }
